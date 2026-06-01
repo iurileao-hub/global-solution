@@ -28,7 +28,7 @@ DATA_PATH = os.environ.get("GS_DATA_PATH", os.path.join(_HERE, "..", "data", "da
 PREDICTION_WINDOW = 12
 
 
-def load_telemetry() -> list:
+def load_telemetry() -> list[dict]:
     if not os.path.exists(DATA_PATH):
         os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
         export_run(DATA_PATH)
@@ -47,7 +47,7 @@ def build_snapshot(rec: dict) -> dict:
     }
 
 
-def predict_next_reserve(telemetry: list) -> tuple:
+def predict_next_reserve(telemetry: list[dict]) -> tuple[float, float]:
     """OLS sobre battery_pct vs step na janela recente → reserva no próximo ciclo.
 
     linear_regression(xs, ys) retorna (a, b) com a=slope, b=intercept (y=a*x+b).
@@ -69,7 +69,7 @@ def _status_tier(level: str) -> str:
     return "NORMAL"
 
 
-def _representative_events(events: list, n: int = 12) -> list:
+def _representative_events(events: list[dict], n: int = 12) -> list[dict]:
     """Seleciona até `n` eventos priorizando FALHA/AUTO-REPARO/CLIMA sobre
     ENERGIA, para um log mais informativo.  Preserva a ordem cronológica."""
     priority = [e for e in events if e["type"] in ("FALHA", "AUTO-REPARO", "CLIMA")]
@@ -81,7 +81,7 @@ def _representative_events(events: list, n: int = 12) -> list:
     return selected
 
 
-def print_report(telemetry: list) -> None:
+def print_report(telemetry: list[dict]) -> None:
     final = telemetry[-1]
 
     print("=" * 64)
