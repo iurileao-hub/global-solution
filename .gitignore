@@ -7,5 +7,7 @@ venv/
 .DS_Store
 
 # Artefatos de trabalho e instruções de agente — não versionar
-docs/
+docs/*
+!docs/uso_ia.md
+!docs/link_video.txt
 /CLAUDE.md
