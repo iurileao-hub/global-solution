@@ -1,15 +1,15 @@
 ---
 title: "Global Solution FIAP 2026-1 — Sistema Inteligente de Monitoramento Espacial"
 subtitle: "Relatório Técnico"
-author: "Gabriel Carmona Bittencourt · Iúri Leão de Almeida · Márcio Francisco dos Santos Júnior"
 date: "Junho de 2026"
 lang: pt-BR
 ---
 
 # Global Solution FIAP 2026-1 — Sistema Inteligente de Monitoramento Espacial
 
+**Equipe:** Gabriel Carmona Bittencourt (RM569239) · Iúri Leão de Almeida (RM570215) · Márcio Francisco dos Santos Júnior (RM570758) · Maria Sophia Domingues dos Santos (RM571209)\
 **Atividade Integradora — Ciência da Computação (online), FIAP, 2026**\
-**Repositório:** <https://github.com/iurileao-hub/global-solution-fiap>
+**Repositório:** <https://github.com/iurileao-hub/global-solution>
 
 ---
 
@@ -357,6 +357,6 @@ reage sobrevive a cada hora; um que também prevê começa a planejar o próximo
 
 ## Referências
 
-- Repositório Global Solution: <https://github.com/iurileao-hub/global-solution-fiap>
+- Repositório Global Solution: <https://github.com/iurileao-hub/global-solution>
 - Motor da Fase 3 (origem do vendoring): <https://github.com/iurileao-hub/FIAP-Aurora-Siger>
 - Repositório original da equipe (Fase 3): <https://github.com/Gcarmnonapy7/fiap-aurora-siger-fase3>
