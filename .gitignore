@@ -10,4 +10,6 @@ venv/
 docs/*
 !docs/uso_ia.md
 !docs/link_video.txt
+!docs/relatorio.md
+!docs/relatorio.pdf
 /CLAUDE.md
