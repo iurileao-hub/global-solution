@@ -4,6 +4,7 @@
 - Gabriel Carmona Bittencourt — RM569239
 - Iúri Leão de Almeida — RM570215
 - Márcio Francisco dos Santos Júnior — RM570758
+- Maria Sophia Domingues dos Santos — RM571209
 
 ## 2. Problema e cenário
 Colônia Aurora Siger em Marte, em operação. Sob comunicação limitada, a telemetria é a fonte primária de decisão. O sistema lê a telemetria horária, classifica a situação (normal/alerta/crítico), gera alertas priorizados, prevê a reserva de energia e recomenda ações.
