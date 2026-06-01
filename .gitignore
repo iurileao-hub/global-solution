@@ -6,6 +6,9 @@ venv/
 *.egg-info/
 .DS_Store
 
+# Suíte de testes — mantida em disco, fora do repositório versionado (decisão acadêmica)
+tests/
+
 # Artefatos de trabalho e instruções de agente — não versionar
 docs/*
 !docs/uso_ia.md

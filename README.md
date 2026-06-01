@@ -28,8 +28,8 @@ Regressão linear OLS de forma fechada, escrita à mão (`engine/prediction.line
 ## 6. Como executar
 ```bash
 python src/sistema.py          # gera data/dados.csv na 1ª execução e imprime o relatório
-python -m pytest               # roda a suíte de testes (requer pip install -e ".[dev]")
 ```
+Runtime stdlib-only: não requer `pip install` nem dependências de terceiros.
 
 ## 7. Exemplo de entrada e saída
 Entrada: `data/dados.csv` (telemetria horária de 7 sóis, seed 42).
@@ -71,6 +71,6 @@ O sistema emite recomendações por alerta (manter Vital, ativar economia, prior
 
 A maior virada de paradigma neste projeto foi a passagem do monitoramento **reativo** para o **preditivo**. Um sistema reativo espera o limiar de bateria ser ultrapassado para soar o alarme; o critério booleano `¬em_recuperação` inverte esse comportamento: se o slope OLS da série de bateria é positivo, a colônia está se recuperando e o alerta crítico é suprimido, mesmo que os demais limites estejam no vermelho. Essa decisão — fazer a regressão linear participar diretamente da condição de disparo — faz com que o sistema não apenas descreva o estado presente, mas incorpore a trajetória como parte do diagnóstico.
 
-A separação entre regra de negócio e apresentação mostrou seu valor ao longo de todo o desenvolvimento. `evaluate_alerts` é uma função pura: recebe um dicionário de snapshot e devolve uma lista de alertas; ela não sabe nada de filas, pilhas ou impressão. Isso tornou cada regra testável de forma isolada (os 110 testes passam sem nenhum efeito colateral) e deixou a camada de apresentação — `AlertQueue` e `CriticalEventStack` — livre para priorizar, ordenar e exibir sem jamais misturar lógica de diagnóstico com lógica de interface. Em sistemas críticos, essa separação não é elegância acadêmica: é o que permite auditar e modificar uma regra sem risco de efeito colateral silencioso em outra parte do sistema.
+A separação entre regra de negócio e apresentação mostrou seu valor ao longo de todo o desenvolvimento. `evaluate_alerts` é uma função pura: recebe um dicionário de snapshot e devolve uma lista de alertas; ela não sabe nada de filas, pilhas ou impressão. Isso tornou cada regra testável e auditável de forma isolada e deixou a camada de apresentação — `AlertQueue` e `CriticalEventStack` — livre para priorizar, ordenar e exibir sem jamais misturar lógica de diagnóstico com lógica de interface. Em sistemas críticos, essa separação não é elegância acadêmica: é o que permite auditar e modificar uma regra sem risco de efeito colateral silencioso em outra parte do sistema.
 
 Por fim, o sistema reconhece seus próprios limites. A inconsistência plantada deliberadamente (`battery_pct=142.0` no passo 50) e capturada por `detect_inconsistencies` é um lembrete concreto de que telemetria pode mentir — sensor com defeito, corrupção de transmissão, overflow de registrador. A função verifica invariantes físicos, mas não pode detectar erros plausíveis dentro da faixa válida. Em uma colônia real, o relatório gerado é insumo para decisão humana, não substituto dela. Automação cuida do volume; julgamento humano cuida dos casos nos quais os dados parecem corretos mas o contexto diz o contrário.

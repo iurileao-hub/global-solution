@@ -40,9 +40,9 @@ estruturas e conceitos de todas as fases anteriores.
 A decisão de projeto central foi **vendorizar** o motor da Fase 3 em vez de tomá-lo como
 dependência instalável. O diretório `src/engine/` contém uma cópia fiel dos 15 módulos de
 `aurora_siger.operations`, com apenas os imports ajustados para o novo namespace
-(`from engine.X`). Essa escolha preserva a física já validada (86 testes de regressão)
+(`from engine.X`). Essa escolha preserva a física já validada da Fase 3
 e deixa o código legível, rastreável e auditável dentro do próprio repositório. A camada
-nova, `src/monitor/`, foi desenvolvida com TDD e cobre os requisitos do §7 ao §14 do
+nova, `src/monitor/`, foi desenvolvida de forma incremental e cobre os requisitos do §7 ao §14 do
 enunciado da Global Solution.
 
 ---
@@ -63,7 +63,7 @@ módulos críticos (`mod1_ok` a `mod8_ok`).
 O CSV é gerado deterministicamente por `telemetry_io.export_run(seed=42)`:
 toda fonte de aleatoriedade (clima, falhas de módulos) passa pelo mesmo gerador
 congruencial linear (LCG) injetado no estado da simulação. A mesma seed produz
-históricos bit-a-bit idênticos — um teste de roundtrip na suíte verifica isso.
+históricos bit-a-bit idênticos, garantindo reprodutibilidade total da telemetria.
 
 Os números consolidados da execução canônica:
 
@@ -267,12 +267,11 @@ calculável à mão a partir dos dados, tornando o modelo completamente transpar
 
 O diretório `src/engine/` contém os 15 módulos de `aurora_siger.operations` copiados
 fielmente, com um único ajuste: todos os imports `from aurora_siger.operations.X` foram
-reescritos para `from engine.X`. Nenhuma lógica foi alterada; os testes de regressão
-do motor (`tests/engine/`) verificam isso explicitamente para as funções críticas.
+reescritos para `from engine.X`. Nenhuma lógica do motor foi alterada no transplante.
 
 A alternativa seria instalar o pacote da Fase 3 como dependência pip. O vendoring foi
-preferido porque: (a) torna o repositório autossuficiente — `pip install -e ".[dev]"`
-instala apenas pytest; (b) isola a Global Solution de alterações futuras no repositório
+preferido porque: (a) torna o repositório autossuficiente, sem nenhuma dependência
+externa para rodar; (b) isola a Global Solution de alterações futuras no repositório
 de origem; (c) mantém o código do motor visível e navegável sem precisar seguir imports
 para um pacote externo; (d) é exatamente o que o enunciado pede ao solicitar a
 "integração das Fases 1–3".
@@ -280,18 +279,18 @@ para um pacote externo; (d) é exatamente o que o enunciado pede ao solicitar a
 ### 6.2 Runtime stdlib-only
 
 Todo o caminho de execução de `sistema.py` usa exclusivamente a biblioteca padrão do
-Python: `csv`, `os`, `sys`, `collections.Counter`, `dataclasses`. Os únicos pacotes de
-terceiros no projeto são `pytest` e `pytest-cov`, ambos em `[project.optional-dependencies]`
-dev — não importados em nenhum módulo de runtime. Isso satisfaz o §12 do enunciado e
-garante que o sistema rode em qualquer ambiente Python 3.12 sem instalação adicional.
+Python: `csv`, `os`, `sys`, `collections.Counter`, `dataclasses`. O projeto não tem
+nenhuma dependência de terceiros — nem em runtime, nem para instalação. Isso satisfaz
+o §12 do enunciado e garante que o sistema rode em qualquer ambiente Python 3.12 sem
+instalação adicional.
 
 ### 6.3 evaluate\_alerts como função pura
 
 Manter `evaluate_alerts` como função pura (snapshot dict → list[Alert], sem efeito
-colateral) foi uma decisão deliberada de testabilidade. Com ela: (a) cada regra pode
-ser exercitada com um dict literal nos testes, sem fixtures complexas; (b) a fila e a
-pilha podem ser testadas independentemente com objetos `Alert` criados diretamente;
-(c) o sistema pode aplicar a mesma função a cada um dos 168 passos históricos para
+colateral) foi uma decisão deliberada de testabilidade e auditabilidade. Com ela: (a) cada
+regra pode ser exercitada isoladamente com um dict literal, sem montar o sistema inteiro;
+(b) a fila e a pilha podem ser verificadas independentemente com objetos `Alert` criados
+diretamente; (c) o sistema pode aplicar a mesma função a cada um dos 168 passos históricos para
 construir a pilha de eventos críticos sem precisar rearquitetar o estado.
 
 ### 6.4 Determinismo por LCG com seed
@@ -300,9 +299,8 @@ Toda aleatoriedade da simulação — variações climáticas, tempestades, falh
 e auto-reparos — passa pelo gerador congruencial linear (LCG) injetado em
 `state["rng"]`. O estado inicial do LCG é determinado exclusivamente pela seed passada
 a `init_simulation(seed)`. Não há chamadas a `random` do módulo padrão nem a
-`time.time()`. Um teste de roundtrip na suíte verifica que duas chamadas a
-`export_run(seed=42)` produzem CSVs byte-a-byte idênticos — garantia de
-reprodutibilidade total da telemetria canônica.
+`time.time()`. Duas chamadas a `export_run(seed=42)` produzem CSVs byte-a-byte
+idênticos — garantia de reprodutibilidade total da telemetria canônica.
 
 ---
 

@@ -10,6 +10,6 @@
 - A **camada de monitoramento** (`src/monitor/`) foi co-desenvolvida com validação crítica linha a linha pela equipe.
 
 ## Validação crítica feita
-- Suíte de testes (`pytest`) cobrindo estruturas, alertas, I/O e o motor transplantado.
-- Smoke test E2E garantindo que `python src/sistema.py` executa sem erros.
+- Revisão linha a linha do motor transplantado e de toda a camada de monitoramento.
+- Execução manual de `python src/sistema.py`, conferindo o relatório operacional gerado.
 - Determinismo verificado (mesma seed ⇒ mesmo `dados.csv`).
