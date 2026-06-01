@@ -1,9 +1,9 @@
 # Global Solution FIAP 2026-1 — Sistema Inteligente de Monitoramento Espacial
 
 ## 1. Equipe
-- Gabriel Carmona Bittencourt — RM <preencher>
-- Iúri Leão de Almeida — RM <preencher>
-- Márcio Francisco dos Santos Júnior — RM <preencher>
+- Gabriel Carmona Bittencourt — RM569239
+- Iúri Leão de Almeida — RM570215
+- Márcio Francisco dos Santos Júnior — RM570758
 
 ## 2. Problema e cenário
 Colônia Aurora Siger em Marte, em operação. Sob comunicação limitada, a telemetria é a fonte primária de decisão. O sistema lê a telemetria horária, classifica a situação (normal/alerta/crítico), gera alertas priorizados, prevê a reserva de energia e recomenda ações.
