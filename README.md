@@ -29,7 +29,11 @@ Regressão linear OLS de forma fechada, escrita à mão (`engine/prediction.line
 ```bash
 python src/sistema.py          # gera data/dados.csv na 1ª execução e imprime o relatório
 ```
-Runtime stdlib-only: não requer `pip install` nem dependências de terceiros.
+Runtime **stdlib-only**: não requer `pip install` nem dependências de terceiros.
+
+O relatório é renderizado em painéis com moldura e cor (ANSI), e a apresentação se adapta ao ambiente — protegendo o "executa sem erros" em qualquer terminal:
+- **cor** apenas quando a saída é um terminal interativo; ao redirecionar (`python src/sistema.py > saida.txt`) ou definir `NO_COLOR=1`, degrada automaticamente para texto puro;
+- **glifos Unicode** (caixas, barras, sparklines) caem para ASCII quando o terminal não os suporta (ex.: console Windows cp1252), e nenhum caractere fora do encoding derruba a execução.
 
 ## 7. Exemplo de entrada e saída
 Entrada: `data/dados.csv` — telemetria horária de 7 sóis, seed 42.
