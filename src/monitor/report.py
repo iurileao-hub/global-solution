@@ -47,7 +47,12 @@ def build_snapshot(rec: dict) -> dict:
 
 
 def predict_next_reserve(telemetry: list[dict]) -> tuple[float, float]:
-    """OLS de battery_pct vs step na janela recente → (reserva_prevista, slope)."""
+    """OLS de battery_pct vs step na janela recente → (reserva_prevista, slope).
+
+    Pré-condição: telemetry deve ter pelo menos 2 registros (linear_regression
+    levanta ValueError caso contrário). No fluxo real a telemetria tem 336
+    registros, portanto essa condição é sempre satisfeita.
+    """
     window = telemetry[-PREDICTION_WINDOW:]
     xs = [rec["step"] for rec in window]
     ys = [rec["battery_pct"] for rec in window]
@@ -78,8 +83,9 @@ def render_interpretacao(issues: list[dict], matrix: ReadingsMatrix) -> list[str
         lines.append("  nenhuma anomalia detectada")
     lines.append(r.kv("matriz", f"{matrix.n_hours()} horas {r.glyphs()['times']} "
                                  f"{matrix.n_variables()} variáveis"))
-    lines.append(r.kv("variáveis", "temp·vento·geração·consumo·bateria".replace(
-        "·", r.glyphs()["middot"])))
+    sep = r.glyphs()["middot"]
+    lines.append(r.kv("variáveis", sep.join(
+        ["temp", "vento", "geração", "consumo", "bateria"])))
     return r.box("INTERPRETAÇÃO", lines, tag=cr.tag, width=WIDTH)
 
 
