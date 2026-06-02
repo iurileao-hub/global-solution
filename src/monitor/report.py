@@ -102,3 +102,65 @@ def render_estruturas(matrix: ReadingsMatrix, queue_len: int, stack_len: int,
         r.kv("árvore N-ária", f"criticidade: {niveis} (profund. {tree.depth()})"),
     ]
     return r.box("ESTRUTURAS", lines, tag=cr.tag, width=WIDTH)
+
+
+def _lit(label: str, val: bool) -> str:
+    """Termo da expressão com valor-verdade aceso: ativo=amarelo, inativo=cinza."""
+    return r.c(f"{label}={'V' if val else 'F'}", "yellow" if val else "gray")
+
+
+def render_diagnostico(final: dict, snapshot: dict) -> list[str]:
+    cr = por_id("logica")
+    g = r.glyphs()
+    t = diagnostic_terms(snapshot)
+    tier = _status_tier(final["energy_level"])
+    tc = _TIER_COLOR[tier]
+    bat = final["battery_pct"]
+
+    dots = " ".join(
+        r.c(g["dot_ok"], "green") if final[f"mod{mid}_ok"] else r.c(g["dot_bad"], "red")
+        for mid in VITAL_MODULE_IDS
+    )
+    expr = (f"CRÍTICO = (consumo>geração) {g['and']} "
+            f"(bat_baixa {g['or']} vital_quebr) {g['and']} {g['not']}recuperação")
+    termos = "   ".join([
+        _lit("consumo>geração", t["deficit"]),
+        _lit("bat_baixa", t["low_battery"]),
+        _lit("vital_quebr", t["vital_broken"]),
+        _lit("¬recuperação", not t["in_recovery"]),
+    ])
+    res_color = "red" if t["critical"] else "green"
+
+    lines = [
+        r.kv("passo", f"{final['step']} {g['middot']} sol {final['sol']} "
+                      f"{g['middot']} {final['hour']:02d}h"),
+        "  " + r.c("bateria  ", "gray") + r.hbar(bat, 100.0, 22, tc)
+            + f" {bat:5.1f}%  " + r.badge(tier, tc),
+        "  " + r.c("geração ", "gray") + r.c(f"{final['generation_kw']:.1f} kW", "green")
+            + r.c("   consumo ", "gray") + r.c(f"{final['consumption_kw']:.1f} kW", "red"),
+        r.kv("vitais (1,2,3,7)", dots),
+        "  " + r.c(expr, "gray"),
+        "  " + termos,
+        "  " + r.c(f"{g['arrow']} CRÍTICO = {'V' if t['critical'] else 'F'}", res_color),
+    ]
+    return r.box("DIAGNÓSTICO", lines, tag=cr.tag, width=WIDTH)
+
+
+def render_previsao(slope: float, next_reserve: float,
+                    battery_history: list[float]) -> list[str]:
+    cr = por_id("previsao")
+    g = r.glyphs()
+    below = next_reserve < 40.0
+    lines = [
+        "  " + r.c("tendência ", "gray") + r.sparkline(battery_history, 40),
+        r.kv("slope (OLS)", f"{slope:+.3f} %/passo"),
+        r.kv("reserva prev.", f"{next_reserve:.1f}% no próximo ciclo",
+             "red" if below else "green"),
+    ]
+    if below:
+        lines.append("  " + r.c(f"{g['arrow']} dispara recomendação: "
+                                 f"ativar economia preventiva", "yellow"))
+    else:
+        lines.append("  " + r.c(f"{g['arrow']} reserva acima do limiar; "
+                                 f"sem economia preventiva", "gray"))
+    return r.box("PREVISÃO", lines, tag=cr.tag, width=WIDTH)
