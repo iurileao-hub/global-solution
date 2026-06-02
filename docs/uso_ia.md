@@ -1,15 +1,19 @@
 # Uso de Inteligência Artificial
 
-## Onde a IA foi usada (permitido — §13)
-- **Organização e revisão**: estruturação do design, revisão de redação do README e do relatório.
-- **Geração de dados simulados**: a telemetria é gerada por simulador determinístico próprio da equipe (Fase 3), não por IA.
-- **Apoio à arquitetura**: discussão de alternativas (vendoring vs. dependência; fila/pilha à mão vs. builtins).
+Este projeto foi desenvolvido com apoio de IA (Claude Code), em diálogo constante com a
+equipe e sob suas decisões de arquitetura e implementação — conforme o §13 do enunciado,
+cuja exigência central é que a solução reflita o entendimento da equipe.
 
-## O que é autoria da equipe
-- O **motor científico** (`src/engine/`) é o módulo `operations` da Fase 3 do Aurora SIGER, escrito pela própria equipe (regressão OLS à mão, simulação determinística, árvores, controle de carga).
-- A **camada de monitoramento** (`src/monitor/`) foi co-desenvolvida com validação crítica linha a linha pela equipe.
+## Como a IA foi usada
+- **Brainstorming, especificação e implementação assistida** da camada de monitoramento e
+  apresentação (`src/monitor/`), a partir das decisões de projeto da equipe e em ciclos de
+  teste-primeiro (TDD).
+- **Revisão e redação** de código, do README e deste relatório técnico.
+- A **telemetria não foi gerada por IA**: vem do simulador determinístico próprio da equipe
+  (Fase 3), também origem do motor científico vendado em `src/engine/`.
 
-## Validação crítica feita
-- Revisão linha a linha do motor transplantado e de toda a camada de monitoramento.
-- Execução manual de `python src/sistema.py`, conferindo o relatório operacional gerado.
-- Determinismo verificado (mesma seed ⇒ mesmo `dados.csv`).
+## Autoria e validação
+A equipe está integrada às decisões de arquitetura e implementação e é capaz de explicar e
+defender a solução. A validação incluiu a conferência dos números do relatório contra os
+dados reais (`data/dados.csv`), a verificação de determinismo (mesma seed ⇒ `dados.csv`
+idêntico) e uma suíte de testes automatizados.
