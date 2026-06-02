@@ -91,7 +91,7 @@ def clip(text: str, width: int) -> str:
     if visible_len(text) <= width:
         return text
     ell = glyphs()["ellipsis"]
-    keep = max(0, width - len(ell))
+    keep = max(0, width - visible_len(ell))
     out, count, i = [], 0, 0
     while i < len(text) and count < keep:
         m = _ANSI_RE.match(text, i)
@@ -111,6 +111,7 @@ def rule(width: int) -> str:
 
 
 def kv(label: str, value: str, color: str | None = None, label_w: int = 16) -> str:
+    """Nota: fora de `box()`, `value` longo não é clipado — responsabilidade do chamador."""
     lab = c(f"{label:<{label_w}}", "gray")
     val = c(value, color) if color else value
     return f"  {lab}{val}"
@@ -149,8 +150,10 @@ def box(title: str, lines: list[str], tag: str | None = None, width: int = 64) -
     """
     g = glyphs()
     inner = width - 2  # espaço entre as duas bordas verticais
-    left = f"{g['h']} {title} "
     right = f" {tag} {g['h']}" if tag else ""
+    avail = inner - len(right) - 4   # 4 = "─ " + " " around the title
+    title = clip(title, max(0, avail))
+    left = f"{g['h']} {title} "
     fill = max(0, inner - len(left) - len(right))
     top = g["tl"] + left + g["h"] * fill + right + g["tr"]
     bottom = g["bl"] + g["h"] * inner + g["br"]
