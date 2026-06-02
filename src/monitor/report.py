@@ -20,7 +20,7 @@ from monitor.telemetry_io import (
     CRITICAL_MODULE_IDS, build_event_log, detect_inconsistencies,
 )
 
-WIDTH = 64
+WIDTH = 74
 PREDICTION_WINDOW = 12
 MATRIX_VARS = ["temperature_c", "wind_ms", "generation_kw", "consumption_kw", "battery_pct"]
 
@@ -138,7 +138,7 @@ def render_diagnostico(final: dict, snapshot: dict) -> list[str]:
             + f" {bat:5.1f}%  " + r.badge(tier, tc),
         "  " + r.c("geração ", "gray") + r.c(f"{final['generation_kw']:.1f} kW", "green")
             + r.c("   consumo ", "gray") + r.c(f"{final['consumption_kw']:.1f} kW", "red"),
-        r.kv("vitais (1,2,3,7)", dots),
+        r.kv("vitais (1,2,3,7)", dots, label_w=18),
         "  " + r.c(expr, "gray"),
         "  " + termos,
         "  " + r.c(f"{g['arrow']} CRÍTICO = {'V' if t['critical'] else 'F'}", res_color),
