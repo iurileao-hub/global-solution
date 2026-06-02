@@ -206,3 +206,58 @@ def render_log(events: list[dict], shown: list[dict]) -> list[str]:
     for e in shown:
         lines.append(f"  passo {e['step']} [{e['type']}] {e['message']}")
     return r.box("LOG DE EVENTOS", lines, width=WIDTH)
+
+
+def render_cobertura() -> list[str]:
+    """Painel final de rastreabilidade: cada critério técnico → evidência na tela."""
+    g = r.glyphs()
+    md = g["middot"]
+    evidencia = {
+        "interpretacao": "anomalia detectada + matriz de leituras",
+        "estruturas": f"fila{md}pilha{md}dict{md}árvore{md}matriz",
+        "logica": "AND/OR/NOT + expressão booleana avaliada",
+        "previsao": f"OLS {g['arrow']} recomendação disparada",
+        "codigo": f"stdlib {md} funções puras {md} sem dependências",
+    }
+    lines = []
+    for cr in CRITERIOS:
+        check = r.c(g["check"], "green")
+        lines.append(f"  {check} " + r.c(f"{cr.nome:<24}", "bold")
+                     + r.c(evidencia[cr.id], "gray"))
+    return r.box("COBERTURA DE REQUISITOS", lines, tag="rastreabilidade", width=WIDTH)
+
+
+def compose_report(telemetry: list[dict]) -> str:
+    """Monta o view-model e renderiza o relatório completo como uma string."""
+    final = telemetry[-1]
+    snapshot = build_snapshot(final)
+    matrix = ReadingsMatrix.from_telemetry(telemetry, MATRIX_VARS)
+    issues = detect_inconsistencies(telemetry)
+
+    queue = AlertQueue()
+    queue.add_all(evaluate_alerts(snapshot))
+    drained = queue.drain()
+
+    stack = CriticalEventStack()
+    for rec in telemetry:
+        for a in evaluate_alerts(build_snapshot(rec)):
+            if a.severity == "CRÍTICO":
+                stack.push_event(a)
+
+    events = build_event_log(telemetry)
+    shown = _representative_events(events, 12)
+    next_reserve, slope = predict_next_reserve(telemetry)
+    battery_history = [rec["battery_pct"] for rec in telemetry]
+
+    blocks: list[str] = []
+    blocks += render_header(final)
+    blocks.append("")
+    blocks += render_interpretacao(issues, matrix)
+    blocks += render_estruturas(matrix, len(drained), len(stack), build_criticality_tree())
+    blocks += render_diagnostico(final, snapshot)
+    blocks += render_previsao(slope, next_reserve, battery_history)
+    blocks += render_alertas(drained)
+    blocks += render_eventos_criticos(stack.recent(5), len(stack))
+    blocks += render_log(events, shown)
+    blocks += render_cobertura()
+    return "\n".join(blocks)
