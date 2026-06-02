@@ -84,3 +84,79 @@ def visible_len(text: str) -> int:
 def padto(text: str, width: int) -> str:
     diff = width - visible_len(text)
     return text + " " * diff if diff > 0 else text
+
+
+def clip(text: str, width: int) -> str:
+    """Trunca para `width` caracteres VISÍVEIS, preservando escapes ANSI."""
+    if visible_len(text) <= width:
+        return text
+    ell = glyphs()["ellipsis"]
+    keep = max(0, width - len(ell))
+    out, count, i = [], 0, 0
+    while i < len(text) and count < keep:
+        m = _ANSI_RE.match(text, i)
+        if m:
+            out.append(m.group())
+            i = m.end()
+            continue
+        out.append(text[i])
+        count += 1
+        i += 1
+    tail = RESET if "\033" in text else ""
+    return "".join(out) + ell + tail
+
+
+def rule(width: int) -> str:
+    return c(glyphs()["h"] * width, "gray")
+
+
+def kv(label: str, value: str, color: str | None = None, label_w: int = 16) -> str:
+    lab = c(f"{label:<{label_w}}", "gray")
+    val = c(value, color) if color else value
+    return f"  {lab}{val}"
+
+
+def badge(text: str, color: str) -> str:
+    return c(f"[ {text} ]", color)
+
+
+def hbar(val: float, mx: float, width: int, color: str = "green") -> str:
+    g = glyphs()
+    filled = int((val / mx) * width) if mx > 0 else 0
+    filled = max(0, min(width, filled))
+    return c(g["bar_f"] * filled, color) + c(g["bar_e"] * (width - filled), "gray")
+
+
+def sparkline(vals: list[float], width: int) -> str:
+    ramp = glyphs()["ramp"]
+    if not vals:
+        return ""
+    series = vals[-width:]
+    lo, hi = min(series), max(series)
+    span = (hi - lo) or 1.0
+    chars = []
+    for v in series:
+        idx = int((v - lo) / span * (len(ramp) - 1))
+        chars.append(ramp[max(0, min(len(ramp) - 1, idx))])
+    return c("".join(chars), "cyan")
+
+
+def box(title: str, lines: list[str], tag: str | None = None, width: int = 64) -> list[str]:
+    """Moldura: título à esquerda, `tag` (critério) à direita no topo.
+
+    Largura total = `width` em TODAS as linhas (corpo é clipado + padded).
+    Borda e título em cinza; corpo passa com suas próprias cores.
+    """
+    g = glyphs()
+    inner = width - 2  # espaço entre as duas bordas verticais
+    left = f"{g['h']} {title} "
+    right = f" {tag} {g['h']}" if tag else ""
+    fill = max(0, inner - len(left) - len(right))
+    top = g["tl"] + left + g["h"] * fill + right + g["tr"]
+    bottom = g["bl"] + g["h"] * inner + g["br"]
+    out = [c(top, "gray")]
+    for ln in lines:
+        body = padto(clip(ln, inner), inner)
+        out.append(c(g["v"], "gray") + body + c(g["v"], "gray"))
+    out.append(c(bottom, "gray"))
+    return out
