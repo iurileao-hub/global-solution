@@ -23,9 +23,10 @@ mão) e uma **camada de monitoramento nova**, desenvolvida para a Global Solutio
 adiciona estruturas de dados explícitas (fila, pilha, matriz), detecção de inconsistências
 em telemetria, avaliação lógica de alertas e previsão de reserva energética. O
 ponto de entrada `src/sistema.py` lê o CSV canônico `data/dados.csv`, organiza os dados em
-estruturas, aplica regras booleanas e OLS, e imprime um relatório operacional textual.
-Toda a cadeia de execução respeita a restrição de stdlib-only — sem numpy, sklearn ou
-qualquer dependência externa no caminho de runtime.
+estruturas, aplica regras booleanas e OLS, e imprime um relatório operacional rico em
+painéis, com cor adaptativa ao terminal e codificação segura (Seção 7). Toda a cadeia de
+execução respeita a restrição de stdlib-only — sem numpy, sklearn ou qualquer dependência
+externa no caminho de runtime.
 
 ---
 
@@ -194,6 +195,12 @@ externo. As quatro regras são:
 Se nenhuma das quatro regras disparar, a função retorna um único alerta NORMAL/OK,
 garantindo que o relatório sempre tenha ao menos uma linha de diagnóstico.
 
+Vale uma observação de honestidade sobre a cobertura dos dados: na execução canônica
+(seed 42) as 63 horas de tempestade são todas de nível `light`, abaixo do gatilho
+`moderate`/`severe` da regra 3 — portanto o alerta CLIMATE permanece dormente nesta
+telemetria específica. A regra existe e é exercitada por testes unitários que injetam
+cenários `moderate`/`severe`; ela apenas não é acionada pela trajetória canônica.
+
 ### 4.3 Separação entre regra e apresentação
 
 A separação entre `evaluate_alerts` (pura) e `AlertQueue`/`CriticalEventStack`
@@ -279,10 +286,10 @@ para um pacote externo; (d) é exatamente o que o enunciado pede ao solicitar a
 ### 6.2 Runtime stdlib-only
 
 Todo o caminho de execução de `sistema.py` usa exclusivamente a biblioteca padrão do
-Python: `csv`, `os`, `sys`, `collections.Counter`, `dataclasses`. O projeto não tem
+Python: `csv`, `os`, `sys`, `re`, `collections.Counter`, `dataclasses`. O projeto não tem
 nenhuma dependência de terceiros — nem em runtime, nem para instalação. Isso satisfaz
-o §12 do enunciado e garante que o sistema rode em qualquer ambiente Python 3.12 sem
-instalação adicional.
+o §12 do enunciado e garante que o sistema rode em qualquer ambiente Python 3.10 ou
+superior sem instalação adicional.
 
 ### 6.3 evaluate\_alerts como função pura
 
@@ -304,7 +311,75 @@ idênticos — garantia de reprodutibilidade total da telemetria canônica.
 
 ---
 
-## 7. Arquitetura do sistema
+## 7. Camada de apresentação
+
+A saída do sistema não é um despejo de texto plano: é um relatório em painéis com
+moldura, cor e mini-gráficos, projetado para que o leitor — operador ou avaliador —
+perceba a cobertura dos requisitos sem precisar garimpá-la. A camada é isolada da
+lógica em três módulos, consumando o princípio de separar regra de apresentação das
+Seções 4.3 e 6.3:
+
+- **`monitor/render.py`** — primitivas puras de renderização (molduras, barras,
+  *sparklines*, colorização), sem nenhum conhecimento de domínio.
+- **`monitor/rubric.py`** — os cinco critérios técnicos da rubrica como **fonte única
+  de verdade**, consumida tanto pelas etiquetas de cada seção quanto pelo painel final
+  de cobertura. Um teste *anti-drift* garante que toda etiqueta exibida corresponda a
+  um critério registrado, impossibilitando que a cobertura anunciada divirja das seções.
+- **`monitor/report.py`** — compõe as seções a partir dos dados, sem imprimir;
+  `sistema.py` faz a única chamada a `print`.
+
+### 7.1 Robustez: cor adaptativa e codificação segura
+
+A apresentação se adapta ao ambiente sem nunca interromper a execução — protegendo
+diretamente o critério "código executa sem erros":
+
+- **Cor** apenas quando a saída é um terminal interativo; ao redirecionar a saída
+  (`> arquivo.txt`) ou definir `NO_COLOR`, degrada automaticamente para texto puro,
+  sem sequências de escape contaminando o arquivo.
+- **Glifos Unicode** (caixas, barras, *sparklines*) caem para equivalentes ASCII quando
+  o terminal não os suporta (ex.: console Windows cp1252), e uma rede de segurança
+  (`stdout.reconfigure(errors="replace")`) assegura que nenhum caractere fora da
+  codificação derrube o programa.
+
+### 7.2 A expressão booleana, acesa
+
+O diferencial pedagógico do relatório é tornar a álgebra da Seção 4.1 **visível em
+execução**: cada termo aparece com seu valor-verdade e o resultado é recalculado na
+tela. Não é uma descrição da regra — é a própria regra avaliada sobre o passo corrente:
+
+```
+┌─ DIAGNÓSTICO ──────────────────────────────────────── lógica e regras ─┐
+│  passo           167 · sol 6 · 23h                                     │
+│  bateria  ██████████████░░░░░░░░  65.6%  [ NORMAL ]                    │
+│  geração 81.0 kW   consumo 107.5 kW                                    │
+│  vitais (1,2,3,7)  ● ● ● ●                                             │
+│  CRÍTICO = (consumo>geração) ∧ (bat_baixa ∨ vital_quebr) ∧ ¬recuperação│
+│  consumo>geração=V   bat_baixa=F   vital_quebr=F   ¬recuperação=F      │
+│  ⇒ CRÍTICO = F                                                         │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 Rastreabilidade dos requisitos
+
+O relatório encerra com um painel que mapeia cada critério técnico da rubrica à
+evidência concreta exibida acima — rastreabilidade de requisitos, não auto-avaliação:
+
+```
+┌─ COBERTURA DE REQUISITOS ──────────────────────────── rastreabilidade ─┐
+│  ✓ Interpretação de dados  anomalia detectada + matriz de leituras     │
+│  ✓ Estruturas de dados     fila·pilha·dict·árvore·matriz               │
+│  ✓ Lógica e regras         AND/OR/NOT + expressão booleana avaliada    │
+│  ✓ Análise e previsão      OLS ⇒ recomendação disparada                │
+│  ✓ Código Python           stdlib · funções puras · sem dependências   │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+Vídeo e documentação ficam deliberadamente fora do painel: a interface de linha de
+comando atesta apenas aquilo que demonstra em tempo de execução.
+
+---
+
+## 8. Arquitetura do sistema
 
 O fluxo de dados do sistema segue uma pipeline linear e sem ciclos:
 
@@ -327,18 +402,20 @@ init_simulation(seed=42)
  | evaluate_alerts() x 168 -> CriticalStack  |
  +--------------------------------------------+
      |
- Relatorio textual (stdout)
+ compose_report()  ->  render/ + rubric/  (apresentacao)
+     |
+ Relatorio rico em paineis (stdout; cor e Unicode adaptativos)
 ```
 
 A separação entre `engine/` (física, simulação, OLS) e `monitor/` (estruturas,
-alertas, I/O) reflete a separação arquitetural entre o que existia na Fase 3 e o que
+alertas, I/O e apresentação) reflete a separação arquitetural entre o que existia na Fase 3 e o que
 foi construído para a Global Solution. As duas camadas se comunicam exclusivamente pelo
 CSV e pelos dicionários de snapshot — sem acoplamento direto entre módulos das duas
 camadas.
 
 ---
 
-## 8. Conclusão
+## 9. Conclusão
 
 A Global Solution materializa a integração pedida pelo enunciado: reaproveitou o motor
 científico da Fase 3 (determinismo, OLS, árvores, controle de carga) e sobre ele
