@@ -164,3 +164,45 @@ def render_previsao(slope: float, next_reserve: float,
         lines.append("  " + r.c(f"{g['arrow']} reserva acima do limiar; "
                                  f"sem economia preventiva", "gray"))
     return r.box("PREVISÃO", lines, tag=cr.tag, width=WIDTH)
+
+
+_SEV_COLOR = {"CRÍTICO": "red", "ALERTA": "yellow", "NORMAL": "green"}
+
+
+def _representative_events(events: list[dict], n: int = 12) -> list[dict]:
+    """Até `n` eventos, priorizando FALHA/AUTO-REPARO/CLIMA sobre ENERGIA,
+    preservando a ordem cronológica."""
+    priority = [e for e in events if e["type"] in ("FALHA", "AUTO-REPARO", "CLIMA")]
+    energia = [e for e in events if e["type"] == "ENERGIA"]
+    combined = priority + energia
+    return sorted(combined[:n], key=lambda e: e["step"])
+
+
+def render_alertas(alerts: list) -> list[str]:
+    g = r.glyphs()
+    lines = []
+    for a in alerts:
+        lines.append("  " + r.badge(a.severity, _SEV_COLOR.get(a.severity, "gray"))
+                     + " " + a.message)
+        lines.append("      " + r.c(f"{g['hook']} {a.recommendation}", "gray"))
+    if not alerts:
+        lines.append("  (sem alertas)")
+    return r.box("ALERTAS PRIORIZADOS", lines, width=WIDTH)
+
+
+def render_eventos_criticos(recent: list, total: int) -> list[str]:
+    lines = [r.kv("total na pilha", str(total))]
+    for a in recent:
+        lines.append(f"  passo {a.step}: {a.code} — {a.message}")
+    if not recent:
+        lines.append("  (nenhum evento crítico)")
+    return r.box("EVENTOS CRÍTICOS (pilha LIFO)", lines, width=WIDTH)
+
+
+def render_log(events: list[dict], shown: list[dict]) -> list[str]:
+    counts = Counter(e["type"] for e in events)
+    summary = "  ".join(f"{t}:{n}" for t, n in sorted(counts.items()))
+    lines = [r.kv("registros", f"{len(events)} ({summary})")]
+    for e in shown:
+        lines.append(f"  passo {e['step']} [{e['type']}] {e['message']}")
+    return r.box("LOG DE EVENTOS", lines, width=WIDTH)
