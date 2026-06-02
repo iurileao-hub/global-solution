@@ -127,7 +127,7 @@ def render_diagnostico(final: dict, snapshot: dict) -> list[str]:
         _lit("consumo>geração", t["deficit"]),
         _lit("bat_baixa", t["low_battery"]),
         _lit("vital_quebr", t["vital_broken"]),
-        _lit("¬recuperação", not t["in_recovery"]),
+        _lit(f"{g['not']}recuperação", not t["in_recovery"]),
     ])
     res_color = "red" if t["critical"] else "green"
 
