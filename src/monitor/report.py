@@ -154,7 +154,7 @@ def render_previsao(slope: float, next_reserve: float,
     below = next_reserve < 40.0
     lines = [
         "  " + r.c("tendência ", "gray") + r.sparkline(battery_history, 40),
-        r.kv("slope OLS (12 passos)", f"{slope:+.3f} %/passo"),
+        r.kv("slope OLS (12 passos)", f"{slope:+.3f} %/passo", label_w=23),
         r.kv("reserva prev.", f"{next_reserve:.1f}% no próximo ciclo",
              "red" if below else "green"),
     ]
