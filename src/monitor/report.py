@@ -64,9 +64,10 @@ def predict_next_reserve(telemetry: list[dict]) -> tuple[float, float]:
 # --- seções A ---
 
 def render_header(final: dict) -> list[str]:
+    g = r.glyphs()
     tier = _status_tier(final["energy_level"])
-    title = "AURORA SIGER · MONITORAMENTO OPERACIONAL DA COLÔNIA"
-    sub = f"sol {final['sol']} · {final['hour']:02d}h · passo {final['step']}   status: "
+    title = f"AURORA SIGER {g['middot']} MONITORAMENTO OPERACIONAL DA COLÔNIA"
+    sub = f"sol {final['sol']} {g['middot']} {final['hour']:02d}h {g['middot']} passo {final['step']}   status: "
     line = r.rule(WIDTH)
     return [line, "  " + r.c(title, "bold"),
             "  " + r.c(sub, "gray") + r.badge(tier, _TIER_COLOR[tier]), line]
@@ -74,17 +75,17 @@ def render_header(final: dict) -> list[str]:
 
 def render_interpretacao(issues: list[dict], matrix: ReadingsMatrix) -> list[str]:
     cr = por_id("interpretacao")
+    g = r.glyphs()
     lines = []
     if issues:
         for i in issues:
             lines.append(r.c("  anomalia:", "yellow")
-                         + f" passo {i['step']} · {i['field']}={i['value']} — {i['reason']}")
+                         + f" passo {i['step']} {g['middot']} {i['field']}={i['value']} {g['dash']} {i['reason']}")
     else:
         lines.append("  nenhuma anomalia detectada")
-    lines.append(r.kv("matriz", f"{matrix.n_hours()} horas {r.glyphs()['times']} "
+    lines.append(r.kv("matriz", f"{matrix.n_hours()} horas {g['times']} "
                                  f"{matrix.n_variables()} variáveis"))
-    sep = r.glyphs()["middot"]
-    lines.append(r.kv("variáveis", sep.join(
+    lines.append(r.kv("variáveis", g["middot"].join(
         ["temp", "vento", "geração", "consumo", "bateria"])))
     return r.box("INTERPRETAÇÃO", lines, tag=cr.tag, width=WIDTH)
 
@@ -96,9 +97,9 @@ def render_estruturas(matrix: ReadingsMatrix, queue_len: int, stack_len: int,
     niveis = g["middot"].join(_NIVEL_PT.get(ch.name, ch.name) for ch in tree.children)
     lines = [
         r.kv("matriz", f"{matrix.n_hours()}{g['times']}{matrix.n_variables()} (lista de listas)"),
-        r.kv("fila (Queue)", f"{queue_len} alertas — FIFO por severidade"),
-        r.kv("pilha (Stack)", f"{stack_len} eventos críticos — LIFO"),
-        r.kv("dicionário", f"{len(tree.leaves())} módulos — acesso O(1) por id"),
+        r.kv("fila (Queue)", f"{queue_len} alertas {g['dash']} FIFO por severidade"),
+        r.kv("pilha (Stack)", f"{stack_len} eventos críticos {g['dash']} LIFO"),
+        r.kv("dicionário", f"{len(tree.leaves())} módulos {g['dash']} acesso O(1) por id"),
         r.kv("árvore N-ária", f"criticidade: {niveis} (profund. {tree.depth()})"),
     ]
     return r.box("ESTRUTURAS", lines, tag=cr.tag, width=WIDTH)
@@ -153,7 +154,7 @@ def render_previsao(slope: float, next_reserve: float,
     below = next_reserve < 40.0
     lines = [
         "  " + r.c("tendência ", "gray") + r.sparkline(battery_history, 40),
-        r.kv("slope (OLS)", f"{slope:+.3f} %/passo"),
+        r.kv("slope OLS (12 passos)", f"{slope:+.3f} %/passo"),
         r.kv("reserva prev.", f"{next_reserve:.1f}% no próximo ciclo",
              "red" if below else "green"),
     ]
@@ -191,9 +192,10 @@ def render_alertas(alerts: list) -> list[str]:
 
 
 def render_eventos_criticos(recent: list, total: int) -> list[str]:
+    g = r.glyphs()
     lines = [r.kv("total na pilha", str(total))]
     for a in recent:
-        lines.append(f"  passo {a.step}: {a.code} — {a.message}")
+        lines.append(f"  passo {a.step}: {a.code} {g['dash']} {a.message}")
     if not recent:
         lines.append("  (nenhum evento crítico)")
     return r.box("EVENTOS CRÍTICOS (pilha LIFO)", lines, width=WIDTH)

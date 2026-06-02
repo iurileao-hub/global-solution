@@ -3,7 +3,9 @@
 Puras e sem domínio: recebem dados, devolvem str/list[str]; nada imprime.
 ANSI escrito à mão (stdlib-only). Cor desligada sob não-TTY / NO_COLOR; os
 glifos de desenho e matemática caem para ASCII quando o encoding do stdout
-não os suporta (evita UnicodeEncodeError → protege "executa sem erros").
+não os suporta (ex.: cp1252 do Windows), evitando UnicodeEncodeError nesses
+símbolos. Texto acentuado em PT (geração, CRÍTICO) depende de o terminal
+suportar Latin-1/UTF-8 — em stdout 7-bit puro não há saída possível.
 """
 import os
 import re
@@ -23,19 +25,19 @@ _UNICODE = {
     "tl": "┌", "tr": "┐", "bl": "└", "br": "┘", "h": "─", "v": "│",
     "bar_f": "█", "bar_e": "░", "dot_ok": "●", "dot_bad": "✕", "check": "✓",
     "and": "∧", "or": "∨", "not": "¬", "arrow": "⇒", "hook": "↳",
-    "middot": "·", "times": "×", "ellipsis": "…",
+    "middot": "·", "times": "×", "ellipsis": "…", "dash": "—",
     "ramp": "▁▂▃▄▅▆▇█",
 }
 _ASCII = {
     "tl": "+", "tr": "+", "bl": "+", "br": "+", "h": "-", "v": "|",
     "bar_f": "#", "bar_e": "-", "dot_ok": "o", "dot_bad": "x", "check": "OK",
     "and": "AND", "or": "OR", "not": "NOT", "arrow": "=>", "hook": ">",
-    "middot": "-", "times": "x", "ellipsis": "..",
+    "middot": "-", "times": "x", "ellipsis": "..", "dash": "-",
     "ramp": ".:-=+*#@",
 }
 
 # Probe: se o encoding do stdout codifica TODOS estes, usamos Unicode.
-_PROBE = "┌█░▁✓●✕∧∨¬⇒↳·×…"
+_PROBE = "┌█░▁✓●✕∧∨¬⇒↳·×…—"
 
 
 def supports_color() -> bool:
