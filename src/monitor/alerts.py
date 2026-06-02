@@ -37,6 +37,25 @@ def _vital_broken(modules_ok: dict) -> bool:
     return any(modules_ok.get(mid, 1) == 0 for mid in VITAL_MODULE_IDS)
 
 
+def diagnostic_terms(snapshot: dict) -> dict:
+    """Predicados nomeados da expressão booleana principal (pura, inspecionável).
+
+    CRÍTICO = deficit ∧ (low_battery ∨ vital_broken) ∧ ¬in_recovery
+    """
+    deficit = snapshot["consumption_kw"] > snapshot["generation_kw"]
+    low_battery = snapshot["battery_pct"] < LOW_BATTERY_PCT
+    vital_broken = _vital_broken(snapshot["modules_ok"])
+    in_recovery = snapshot["slope"] > 0.0
+    critical = deficit and (low_battery or vital_broken) and (not in_recovery)
+    return {
+        "deficit": deficit,
+        "low_battery": low_battery,
+        "vital_broken": vital_broken,
+        "in_recovery": in_recovery,
+        "critical": critical,
+    }
+
+
 def evaluate_alerts(snapshot: dict) -> list[Alert]:
     """Snapshot → lista de Alert. Função pura, regras com AND/OR/NOT."""
     consumption = snapshot["consumption_kw"]
