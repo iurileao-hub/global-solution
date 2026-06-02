@@ -170,7 +170,7 @@ def build_event_log(rows: list[dict]) -> list[dict]:
                     "type": "ENERGIA",
                     "message": (
                         f"Nível de energia alterado: {prev['energy_level']}"
-                        f" → {r['energy_level']}"
+                        f" -> {r['energy_level']}"
                     ),
                 })
         prev = r

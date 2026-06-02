@@ -28,6 +28,10 @@ def load_telemetry() -> list[dict]:
 
 
 def main() -> None:
+    # Rede de segurança: em stdout não-UTF-8 (ex. cp1252), caracteres fora do
+    # encoding viram '?' em vez de derrubar o programa (protege "roda sem erros").
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     print(compose_report(load_telemetry()))
 
 
