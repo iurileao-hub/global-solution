@@ -31,7 +31,7 @@ _ASCII = {
     "bar_f": "#", "bar_e": "-", "dot_ok": "o", "dot_bad": "x", "check": "OK",
     "and": "AND", "or": "OR", "not": "NOT", "arrow": "=>", "hook": ">",
     "middot": "-", "times": "x", "ellipsis": "..",
-    "ramp": ".:-=+*#%@",
+    "ramp": ".:-=+*#@",
 }
 
 # Probe: se o encoding do stdout codifica TODOS estes, usamos Unicode.
@@ -58,7 +58,7 @@ def unicode_ok() -> bool:
         return False
 
 
-def glyphs() -> dict:
+def glyphs() -> dict[str, str]:
     return _UNICODE if unicode_ok() else _ASCII
 
 
@@ -66,8 +66,8 @@ def c(text: str, color: str) -> str:
     """Embrulha em cor ANSI se o terminal suportar; senão devolve cru."""
     if not supports_color():
         return text
-    code = _COLORS.get(color)
-    return f"{ESC}[{code}m{text}{RESET}" if code else text
+    code = _COLORS[color]  # KeyError intencional em nome desconhecido
+    return f"{ESC}[{code}m{text}{RESET}"
 
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
