@@ -7,3 +7,7 @@ name = "global-solution"
 version = "1.0.0"
 description = "Sistema inteligente de monitoramento de missão espacial — Global Solution FIAP 2026-1"
 requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
