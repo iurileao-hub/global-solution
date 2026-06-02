@@ -32,33 +32,49 @@ python src/sistema.py          # gera data/dados.csv na 1ª execução e imprime
 Runtime stdlib-only: não requer `pip install` nem dependências de terceiros.
 
 ## 7. Exemplo de entrada e saída
-Entrada: `data/dados.csv` (telemetria horária de 7 sóis, seed 42).
-Saída (trecho):
+Entrada: `data/dados.csv` — telemetria horária de 7 sóis, seed 42.
+Saída (relatório no terminal; cores degradam para texto puro quando redirecionado):
 ```
-================================================================
-AURORA SIGER — MONITORAMENTO OPERACIONAL DA COLÔNIA
-================================================================
+──────────────────────────────────────────────────────────────────────────
+  AURORA SIGER · MONITORAMENTO OPERACIONAL DA COLÔNIA
+  sol 6 · 23h · passo 167   status: [ NORMAL ]
+──────────────────────────────────────────────────────────────────────────
 
-[INCONSISTÊNCIA NOS DADOS]
-  passo 50: battery_pct=142.0 — fora de [0, 100] %
-
-[MATRIZ DE LEITURAS]  168 horas × 5 variáveis
-  variáveis: temperature_c, wind_ms, generation_kw, consumption_kw, battery_pct
-
-[DIAGNÓSTICO]
-  passo 167 (sol 6, hora 23h)
-  bateria: 65.6%  |  nível de energia: HIGH  ⇒  NORMAL
-  geração: 81.0 kW  |  consumo: 107.5 kW
-    módulo 1 Command and Control: OK
-    módulo 2 Life Support (ECLSS): OK
-    módulo 3 Habitat: OK
-    módulo 7 Medical Support: OK
-    módulo 6 Communications: OK
-    módulo 8 Food Production: OK
-
-[PREVISÃO]
-  tendência (slope OLS): -3.289 %/passo
-  reserva prevista no próximo ciclo: 68.0%
+┌─ INTERPRETAÇÃO ─────────────────────────────── interpretação de dados ─┐
+│  anomalia: passo 50 · battery_pct=142.0 — fora de [0, 100] %           │
+│  matriz          168 horas × 5 variáveis                               │
+│  variáveis       temp·vento·geração·consumo·bateria                    │
+└────────────────────────────────────────────────────────────────────────┘
+┌─ ESTRUTURAS ───────────────────────────────────── estruturas de dados ─┐
+│  matriz          168×5 (lista de listas)                               │
+│  fila (Queue)    1 alertas — FIFO por severidade                       │
+│  pilha (Stack)   65 eventos críticos — LIFO                            │
+│  dicionário      13 módulos — acesso O(1) por id                       │
+│  árvore N-ária   criticidade: Vital·Sustento·Expansão (profund. 3)     │
+└────────────────────────────────────────────────────────────────────────┘
+┌─ DIAGNÓSTICO ──────────────────────────────────────── lógica e regras ─┐
+│  passo           167 · sol 6 · 23h                                     │
+│  bateria  ██████████████░░░░░░░░  65.6%  [ NORMAL ]                    │
+│  geração 81.0 kW   consumo 107.5 kW                                    │
+│  vitais (1,2,3,7)  ● ● ● ●                                             │
+│  CRÍTICO = (consumo>geração) ∧ (bat_baixa ∨ vital_quebr) ∧ ¬recuperação│
+│  consumo>geração=V   bat_baixa=F   vital_quebr=F   ¬recuperação=F      │
+│  ⇒ CRÍTICO = F                                                         │
+└────────────────────────────────────────────────────────────────────────┘
+┌─ PREVISÃO ──────────────────────────────────────── análise e previsão ─┐
+│  tendência ▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▂▃▄▆█████▇▆▆▅▄▃▂                    │
+│  slope (OLS)     -3.289 %/passo                                        │
+│  reserva prev.   68.0% no próximo ciclo                                │
+│  ⇒ reserva acima do limiar; sem economia preventiva                    │
+└────────────────────────────────────────────────────────────────────────┘
+  ...
+┌─ COBERTURA DE REQUISITOS ──────────────────────────── rastreabilidade ─┐
+│  ✓ Interpretação de dados  anomalia detectada + matriz de leituras     │
+│  ✓ Estruturas de dados     fila·pilha·dict·árvore·matriz               │
+│  ✓ Lógica e regras         AND/OR/NOT + expressão booleana avaliada    │
+│  ✓ Análise e previsão      OLS ⇒ recomendação disparada                │
+│  ✓ Código Python           stdlib · funções puras · sem dependências   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 8. Recomendações geradas

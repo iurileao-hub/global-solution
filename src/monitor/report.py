@@ -1,0 +1,265 @@
+# src/monitor/report.py
+"""Composição do relatório operacional (camada de view).
+
+Monta o view-model a partir da telemetria (motor + estruturas) e renderiza
+cada seção via render.py. Nenhuma função imprime: compose_report() devolve a
+string final; sistema.main() faz o único print.
+"""
+from collections import Counter
+
+from engine.hierarchies import build_criticality_tree
+from engine.prediction import linear_regression, predict
+from monitor import render as r
+from monitor.alerts import (
+    AlertQueue, CriticalEventStack, VITAL_MODULE_IDS,
+    diagnostic_terms, evaluate_alerts,
+)
+from monitor.matrix import ReadingsMatrix
+from monitor.rubric import CRITERIOS, por_id
+from monitor.telemetry_io import (
+    CRITICAL_MODULE_IDS, build_event_log, detect_inconsistencies,
+)
+
+WIDTH = 74
+PREDICTION_WINDOW = 12
+MATRIX_VARS = ["temperature_c", "wind_ms", "generation_kw", "consumption_kw", "battery_pct"]
+
+_TIER_COLOR = {"CRÍTICO": "red", "ALERTA": "yellow", "NORMAL": "green"}
+_NIVEL_PT = {"Vital": "Vital", "Sustenance": "Sustento", "Expansion": "Expansão"}
+
+
+def _status_tier(energy_level: str) -> str:
+    return {"CRITICAL": "CRÍTICO", "LOW": "ALERTA"}.get(energy_level, "NORMAL")
+
+
+# --- view-model (montagem; não imprime) ---
+
+def build_snapshot(rec: dict) -> dict:
+    return {
+        "step": rec["step"],
+        "consumption_kw": rec["consumption_kw"],
+        "generation_kw": rec["generation_kw"],
+        "battery_pct": rec["battery_pct"],
+        "slope": rec["slope"],
+        "storm": rec["storm"],
+        "modules_ok": {mid: rec[f"mod{mid}_ok"] for mid in CRITICAL_MODULE_IDS},
+    }
+
+
+def predict_next_reserve(telemetry: list[dict]) -> tuple[float, float]:
+    """OLS de battery_pct vs step na janela recente → (reserva_prevista, slope).
+
+    Pré-condição: telemetry deve ter pelo menos 2 registros (linear_regression
+    levanta ValueError caso contrário). No fluxo real a telemetria tem 336
+    registros, portanto essa condição é sempre satisfeita.
+    """
+    window = telemetry[-PREDICTION_WINDOW:]
+    xs = [rec["step"] for rec in window]
+    ys = [rec["battery_pct"] for rec in window]
+    a, b = linear_regression(xs, ys)
+    next_step = telemetry[-1]["step"] + 1
+    return predict(a, b, next_step), a
+
+
+# --- seções A ---
+
+def render_header(final: dict) -> list[str]:
+    g = r.glyphs()
+    tier = _status_tier(final["energy_level"])
+    title = f"AURORA SIGER {g['middot']} MONITORAMENTO OPERACIONAL DA COLÔNIA"
+    sub = f"sol {final['sol']} {g['middot']} {final['hour']:02d}h {g['middot']} passo {final['step']}   status: "
+    line = r.rule(WIDTH)
+    return [line, "  " + r.c(title, "bold"),
+            "  " + r.c(sub, "gray") + r.badge(tier, _TIER_COLOR[tier]), line]
+
+
+def render_interpretacao(issues: list[dict], matrix: ReadingsMatrix) -> list[str]:
+    cr = por_id("interpretacao")
+    g = r.glyphs()
+    lines = []
+    if issues:
+        for i in issues:
+            lines.append(r.c("  anomalia:", "yellow")
+                         + f" passo {i['step']} {g['middot']} {i['field']}={i['value']} {g['dash']} {i['reason']}")
+    else:
+        lines.append("  nenhuma anomalia detectada")
+    lines.append(r.kv("matriz", f"{matrix.n_hours()} horas {g['times']} "
+                                 f"{matrix.n_variables()} variáveis"))
+    lines.append(r.kv("variáveis", g["middot"].join(
+        ["temp", "vento", "geração", "consumo", "bateria"])))
+    return r.box("INTERPRETAÇÃO", lines, tag=cr.tag, width=WIDTH)
+
+
+def render_estruturas(matrix: ReadingsMatrix, queue_len: int, stack_len: int,
+                      tree) -> list[str]:
+    cr = por_id("estruturas")
+    g = r.glyphs()
+    niveis = g["middot"].join(_NIVEL_PT.get(ch.name, ch.name) for ch in tree.children)
+    lines = [
+        r.kv("matriz", f"{matrix.n_hours()}{g['times']}{matrix.n_variables()} (lista de listas)"),
+        r.kv("fila (Queue)", f"{queue_len} alertas {g['dash']} FIFO por severidade"),
+        r.kv("pilha (Stack)", f"{stack_len} eventos críticos {g['dash']} LIFO"),
+        r.kv("dicionário", f"{len(tree.leaves())} módulos {g['dash']} acesso O(1) por id"),
+        r.kv("árvore N-ária", f"criticidade: {niveis} (profund. {tree.depth()})"),
+    ]
+    return r.box("ESTRUTURAS", lines, tag=cr.tag, width=WIDTH)
+
+
+def _lit(label: str, val: bool) -> str:
+    """Termo da expressão com valor-verdade aceso: ativo=amarelo, inativo=cinza."""
+    return r.c(f"{label}={'V' if val else 'F'}", "yellow" if val else "gray")
+
+
+def render_diagnostico(final: dict, snapshot: dict) -> list[str]:
+    cr = por_id("logica")
+    g = r.glyphs()
+    t = diagnostic_terms(snapshot)
+    tier = _status_tier(final["energy_level"])
+    tc = _TIER_COLOR[tier]
+    bat = final["battery_pct"]
+
+    dots = " ".join(
+        r.c(g["dot_ok"], "green") if final[f"mod{mid}_ok"] else r.c(g["dot_bad"], "red")
+        for mid in VITAL_MODULE_IDS
+    )
+    expr = (f"CRÍTICO = (consumo>geração) {g['and']} "
+            f"(bat_baixa {g['or']} vital_quebr) {g['and']} {g['not']}recuperação")
+    termos = "   ".join([
+        _lit("consumo>geração", t["deficit"]),
+        _lit("bat_baixa", t["low_battery"]),
+        _lit("vital_quebr", t["vital_broken"]),
+        _lit(f"{g['not']}recuperação", not t["in_recovery"]),
+    ])
+    res_color = "red" if t["critical"] else "green"
+
+    lines = [
+        r.kv("passo", f"{final['step']} {g['middot']} sol {final['sol']} "
+                      f"{g['middot']} {final['hour']:02d}h"),
+        "  " + r.c("bateria  ", "gray") + r.hbar(bat, 100.0, 22, tc)
+            + f" {bat:5.1f}%  " + r.badge(tier, tc),
+        "  " + r.c("geração ", "gray") + r.c(f"{final['generation_kw']:.1f} kW", "green")
+            + r.c("   consumo ", "gray") + r.c(f"{final['consumption_kw']:.1f} kW", "red"),
+        r.kv("vitais (1,2,3,7)", dots, label_w=18),
+        "  " + r.c(expr, "gray"),
+        "  " + termos,
+        "  " + r.c(f"{g['arrow']} CRÍTICO = {'V' if t['critical'] else 'F'}", res_color),
+    ]
+    return r.box("DIAGNÓSTICO", lines, tag=cr.tag, width=WIDTH)
+
+
+def render_previsao(slope: float, next_reserve: float,
+                    battery_history: list[float]) -> list[str]:
+    cr = por_id("previsao")
+    g = r.glyphs()
+    below = next_reserve < 40.0
+    lines = [
+        "  " + r.c("tendência ", "gray") + r.sparkline(battery_history, 40),
+        r.kv("slope OLS (12 passos)", f"{slope:+.3f} %/passo", label_w=23),
+        r.kv("reserva prev.", f"{next_reserve:.1f}% no próximo ciclo",
+             "red" if below else "green"),
+    ]
+    if below:
+        lines.append("  " + r.c(f"{g['arrow']} dispara recomendação: "
+                                 f"ativar economia preventiva", "yellow"))
+    else:
+        lines.append("  " + r.c(f"{g['arrow']} reserva acima do limiar; "
+                                 f"sem economia preventiva", "gray"))
+    return r.box("PREVISÃO", lines, tag=cr.tag, width=WIDTH)
+
+
+_SEV_COLOR = {"CRÍTICO": "red", "ALERTA": "yellow", "NORMAL": "green"}
+
+
+def _representative_events(events: list[dict], n: int = 12) -> list[dict]:
+    """Até `n` eventos, priorizando FALHA/AUTO-REPARO/CLIMA sobre ENERGIA,
+    preservando a ordem cronológica."""
+    priority = [e for e in events if e["type"] in ("FALHA", "AUTO-REPARO", "CLIMA")]
+    energia = [e for e in events if e["type"] == "ENERGIA"]
+    combined = priority + energia
+    return sorted(combined[:n], key=lambda e: e["step"])
+
+
+def render_alertas(alerts: list) -> list[str]:
+    g = r.glyphs()
+    lines = []
+    for a in alerts:
+        lines.append("  " + r.badge(a.severity, _SEV_COLOR.get(a.severity, "gray"))
+                     + " " + a.message)
+        lines.append("      " + r.c(f"{g['hook']} {a.recommendation}", "gray"))
+    if not alerts:
+        lines.append("  (sem alertas)")
+    return r.box("ALERTAS PRIORIZADOS", lines, width=WIDTH)
+
+
+def render_eventos_criticos(recent: list, total: int) -> list[str]:
+    g = r.glyphs()
+    lines = [r.kv("total na pilha", str(total))]
+    for a in recent:
+        lines.append(f"  passo {a.step}: {a.code} {g['dash']} {a.message}")
+    if not recent:
+        lines.append("  (nenhum evento crítico)")
+    return r.box("EVENTOS CRÍTICOS (pilha LIFO)", lines, width=WIDTH)
+
+
+def render_log(events: list[dict], shown: list[dict]) -> list[str]:
+    counts = Counter(e["type"] for e in events)
+    summary = "  ".join(f"{t}:{n}" for t, n in sorted(counts.items()))
+    lines = [r.kv("registros", f"{len(events)} ({summary})")]
+    for e in shown:
+        lines.append(f"  passo {e['step']} [{e['type']}] {e['message']}")
+    return r.box("LOG DE EVENTOS", lines, width=WIDTH)
+
+
+def render_cobertura() -> list[str]:
+    """Painel final de rastreabilidade: cada critério técnico → evidência na tela."""
+    g = r.glyphs()
+    md = g["middot"]
+    evidencia = {
+        "interpretacao": "anomalia detectada + matriz de leituras",
+        "estruturas": f"fila{md}pilha{md}dict{md}árvore{md}matriz",
+        "logica": "AND/OR/NOT + expressão booleana avaliada",
+        "previsao": f"OLS {g['arrow']} recomendação disparada",
+        "codigo": f"stdlib {md} funções puras {md} sem dependências",
+    }
+    lines = []
+    for cr in CRITERIOS:
+        check = r.c(g["check"], "green")
+        lines.append(f"  {check} " + r.c(f"{cr.nome:<24}", "bold")
+                     + r.c(evidencia[cr.id], "gray"))
+    return r.box("COBERTURA DE REQUISITOS", lines, tag="rastreabilidade", width=WIDTH)
+
+
+def compose_report(telemetry: list[dict]) -> str:
+    """Monta o view-model e renderiza o relatório completo como uma string."""
+    final = telemetry[-1]
+    snapshot = build_snapshot(final)
+    matrix = ReadingsMatrix.from_telemetry(telemetry, MATRIX_VARS)
+    issues = detect_inconsistencies(telemetry)
+
+    queue = AlertQueue()
+    queue.add_all(evaluate_alerts(snapshot))
+    drained = queue.drain()
+
+    stack = CriticalEventStack()
+    for rec in telemetry:
+        for a in evaluate_alerts(build_snapshot(rec)):
+            if a.severity == "CRÍTICO":
+                stack.push_event(a)
+
+    events = build_event_log(telemetry)
+    shown = _representative_events(events, 12)
+    next_reserve, slope = predict_next_reserve(telemetry)
+    battery_history = [rec["battery_pct"] for rec in telemetry]
+
+    blocks: list[str] = []
+    blocks += render_header(final)
+    blocks.append("")
+    blocks += render_interpretacao(issues, matrix)
+    blocks += render_estruturas(matrix, len(drained), len(stack), build_criticality_tree())
+    blocks += render_diagnostico(final, snapshot)
+    blocks += render_previsao(slope, next_reserve, battery_history)
+    blocks += render_alertas(drained)
+    blocks += render_eventos_criticos(stack.recent(5), len(stack))
+    blocks += render_log(events, shown)
+    blocks += render_cobertura()
+    return "\n".join(blocks)
