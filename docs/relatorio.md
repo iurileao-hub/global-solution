@@ -23,9 +23,9 @@ mão) e uma **camada de monitoramento nova**, desenvolvida para a Global Solutio
 adiciona estruturas de dados explícitas (fila, pilha, matriz), detecção de inconsistências
 em telemetria, avaliação lógica de alertas e previsão de reserva energética. O
 ponto de entrada `src/sistema.py` lê o CSV canônico `data/dados.csv`, organiza os dados em
-estruturas, aplica regras booleanas e OLS, e imprime um relatório operacional rico em
-painéis, com cor adaptativa ao terminal e codificação segura (Seção 7). Toda a cadeia de
-execução respeita a restrição de stdlib-only — sem numpy, sklearn ou qualquer dependência
+estruturas, aplica regras booleanas e OLS, e imprime um relatório operacional organizado
+em painéis, com cor adaptativa ao terminal e codificação segura (Seção 7). Toda a cadeia de
+execução respeita a restrição autoimposta de stdlib-only — sem numpy, sklearn ou qualquer dependência
 externa no caminho de runtime.
 
 ---
@@ -38,8 +38,9 @@ telemetria e decisão Go/No-Go), **pouso** (Fase 2 — autorização e estabiliz
 ato: o **monitoramento inteligente** dessa operação, integrando de forma explícita as
 estruturas e conceitos de todas as fases anteriores.
 
-A decisão de projeto central foi **vendorizar** o motor da Fase 3 em vez de tomá-lo como
-dependência instalável. O diretório `src/engine/` contém uma cópia fiel dos 15 módulos de
+A decisão de projeto central foi **vendorizar** o motor da Fase 3 — isto é, incorporar
+uma cópia do código ao próprio repositório — em vez de tomá-lo como dependência
+instalável. O diretório `src/engine/` contém uma cópia fiel dos 15 módulos de
 `aurora_siger.operations`, com apenas os imports ajustados para o novo namespace
 (`from engine.X`). Essa escolha preserva a física já validada da Fase 3
 e deixa o código legível, rastreável e auditável dentro do próprio repositório. A camada
@@ -55,16 +56,17 @@ enunciado da Global Solution.
 O arquivo `data/dados.csv` contém **168 registros** — um por hora de operação, cobrindo
 7 sóis marcianos (cada sol tem 24 horas no modelo). Cada registro inclui 24 campos: passo
 (`step`), posição temporal (`sol`, `hour`), condições climáticas
-(`temperature_c`, `wind_ms`, `tau`, `storm`), geração por fonte (`solar_kw`, `wind_kw`,
-`nuclear_kw`), consumo (`consumption_kw`), estado da bateria (`battery_kwh`,
-`battery_pct`), contagem de falhas (`broken_count`), nível de energia classificado
-(`energy_level`), tendência OLS (`slope`, `predicted_delta`), e status binário de 6
-módulos críticos (`mod1_ok` a `mod8_ok`).
+(`temperature_c`, `wind_ms`, `tau`, `storm`), geração por fonte e total (`solar_kw`,
+`wind_kw`, `nuclear_kw`, `generation_kw`), consumo (`consumption_kw`), estado da bateria
+(`battery_kwh`, `battery_pct`), contagem de falhas (`broken_count`), nível de energia
+classificado (`energy_level`), tendência OLS (`slope`, `predicted_delta`) e o status
+binário de 6 módulos monitorados (`mod1_ok`, `mod2_ok`, `mod3_ok`, `mod7_ok`, `mod6_ok`,
+`mod8_ok` — os quatro vitais e dois de sustento).
 
 O CSV é gerado deterministicamente por `telemetry_io.export_run(seed=42)`:
 toda fonte de aleatoriedade (clima, falhas de módulos) passa pelo mesmo gerador
 congruencial linear (LCG) injetado no estado da simulação. A mesma seed produz
-históricos bit-a-bit idênticos, garantindo reprodutibilidade total da telemetria.
+históricos byte a byte idênticos, garantindo reprodutibilidade total da telemetria.
 
 Os números consolidados da execução canônica:
 
@@ -84,7 +86,7 @@ A função `inject_inconsistency` planta **uma** inconsistência documentada no 
 `battery_pct = 142.0`, violando o invariante físico $[0, 100]\%$. O propósito é demonstrar
 que o sistema detecta e reporta anomalias em vez de consumi-las silenciosamente.
 
-`detect_inconsistencies` valida três classes de invariantes físicas:
+`detect_inconsistencies` valida três classes de invariantes físicos:
 
 1. **Percentual de bateria** fora de $[0, 100]\%$ — captura a inconsistência plantada.
 2. **Energia negativa** — geração ou consumo abaixo de zero seria fisicamente impossível.
@@ -109,7 +111,7 @@ A tabela abaixo resume as seis estruturas empregadas.
 | Árvore N-ária (`Node`) | `engine/tree.py`, `engine/hierarchies.py` | Hierarquia Vital > Sustento > Expansão para load shedding |
 | Fila (`Queue` / `AlertQueue`) | `monitor/structures.py`, `monitor/alerts.py` | Ordenação FIFO dentro de cada raia de severidade |
 | Pilha (`Stack` / `CriticalEventStack`) | `monitor/structures.py`, `monitor/alerts.py` | Acesso LIFO aos eventos críticos mais recentes |
-| Matriz (`ReadingsMatrix`) | `monitor/matrix.py` | Indexação bidimensional hora x variável |
+| Matriz (`ReadingsMatrix`) | `monitor/matrix.py` | Indexação bidimensional hora × variável |
 
 ### 3.1 Árvore N-ária de criticidade
 
@@ -146,7 +148,7 @@ natural.
 ### 3.3 Matriz de leituras
 
 `ReadingsMatrix` representa as 168 horas como uma lista-de-listas $[hora \times var]$,
-sem numpy. O constructor de classe `from_telemetry` recebe a lista de registros e os
+sem numpy. O método de classe `from_telemetry` recebe a lista de registros e os
 nomes das variáveis desejadas, construindo a matriz por compreensão. Os métodos
 `get(hour, var)` e `column(var)` permitem acesso pontual e extração de série
 temporal, respectivamente. Na execução de referência a matriz cobre 5 variáveis:
@@ -186,7 +188,7 @@ devolve uma lista de objetos `Alert`, sem efeito colateral e sem depender de est
 externo. As quatro regras são:
 
 1. **CRÍTICO / ENERGY\_DEFICIT** — expressão booleana principal acima.
-2. **ALERTA / LOW\_ENERGY** — bateria abaixo de 40 % *ou* slope OLS $\leq -2{,}0$ kW/passo.
+2. **ALERTA / LOW\_ENERGY** — bateria abaixo de 40% *ou* slope OLS $\leq -2{,}0$ kW/passo.
    Captura tanto a situação presente quanto a tendência negativa acentuada.
 3. **ALERTA / CLIMATE** — tempestade de nível `moderate` ou `severe` *e* nenhum módulo
    vital quebrado concorrentemente (para não duplicar a gravidade do alerta VITAL\_FAILURE).
@@ -195,7 +197,7 @@ externo. As quatro regras são:
 Se nenhuma das quatro regras disparar, a função retorna um único alerta NORMAL/OK,
 garantindo que o relatório sempre tenha ao menos uma linha de diagnóstico.
 
-Vale uma observação de honestidade sobre a cobertura dos dados: na execução canônica
+Vale registrar, por transparência, um limite da cobertura dos dados: na execução canônica
 (seed 42) as 63 horas de tempestade são todas de nível `light`, abaixo do gatilho
 `moderate`/`severe` da regra 3 — portanto o alerta CLIMATE permanece dormente nesta
 telemetria específica. A regra existe e é exercitada por testes unitários que injetam
@@ -214,8 +216,9 @@ alimenta a pilha de histórico crítico.
 ### 4.4 Déficit instantâneo não é emergência
 
 Um resultado revelador da execução canônica: em **93 das 168 horas** a geração
-instantânea ficou abaixo do consumo, mas apenas passos com bateria baixa *e* tendência
-negativa *e* módulo vital quebrado geraram alerta CRÍTICO do tipo ENERGY\_DEFICIT.
+instantânea ficou abaixo do consumo, mas o alerta CRÍTICO de ENERGY\_DEFICIT só dispara
+quando o déficit coincide com bateria baixa *ou* módulo vital quebrado — e, ainda assim,
+sem tendência de recuperação.
 À noite, o solar zera e apenas o nuclear sustenta a base; o consumo instantâneo supera
 a geração, mas a bateria absorve o vale e recarrega ao longo do dia. Decidir só pelo
 déficit instantâneo seria reagir a um falso alarme dezenas de vezes por missão.
@@ -232,8 +235,9 @@ fechada, sem numpy:
 $$a = \frac{\sum (x - \bar{x})(y - \bar{y})}{\sum (x - \bar{x})^2}, \qquad b = \bar{y} - a\bar{x}$$
 
 A função `linear_regression(xs, ys)` devolve `(a, b)` usando apenas `sum()`, `len()` e
-um laço `for`. Nenhuma dependência externa — a restrição de stdlib-only do §12 do
-enunciado é satisfeita na camada de runtime.
+um laço `for`. Nenhuma dependência externa: o §12 do enunciado até permite bibliotecas
+como numpy, desde que a lógica seja construída pelos alunos — a opção aqui foi pela
+leitura mais estrita, com o caminho de execução inteiro em stdlib.
 
 ### 5.2 Dois usos da mesma função
 
@@ -246,7 +250,7 @@ O estimador é reutilizado em dois contextos distintos:
 2. **Reserva futura** (`predict_next_reserve` em `sistema.py`): treina sobre
    `battery_pct vs step` na janela de 12 passos finais e extrapola a reserva no
    próximo ciclo. Na execução canônica, o slope final é $-3{,}289$ %/passo e a
-   reserva prevista é 68,0 % — acima do limiar de 40 %, portanto sem acionar
+   reserva prevista é 68,0% — acima do limiar de 40%, portanto sem acionar
    recomendação preventiva nesse passo final.
 
 ### 5.3 A previsão influencia a decisão
@@ -254,7 +258,7 @@ O estimador é reutilizado em dois contextos distintos:
 A integração entre previsão e decisão é unidirecional e explícita: o slope calculado
 por OLS entra como campo `slope` no snapshot passado a `evaluate_alerts`. A regra 2
 (LOW\_ENERGY) dispara se o slope for $\leq -2{,}0$, mesmo que a bateria atual ainda
-esteja acima de 40 %. Isso significa que a OLS não é apenas um relatório descritivo —
+esteja acima de 40%. Isso significa que a OLS não é apenas um relatório descritivo —
 ela **atua** como sensor de tendência que pode antecipar o alerta antes de a bateria
 cruzar o limiar crítico.
 
@@ -280,8 +284,8 @@ A alternativa seria instalar o pacote da Fase 3 como dependência pip. O vendori
 preferido porque: (a) torna o repositório autossuficiente, sem nenhuma dependência
 externa para rodar; (b) isola a Global Solution de alterações futuras no repositório
 de origem; (c) mantém o código do motor visível e navegável sem precisar seguir imports
-para um pacote externo; (d) é exatamente o que o enunciado pede ao solicitar a
-"integração das Fases 1–3".
+para um pacote externo; (d) atende diretamente ao §12 do enunciado, que pede o uso dos
+conceitos desenvolvidos nas fases 1, 2 e 3.
 
 ### 6.2 Runtime stdlib-only
 
@@ -305,8 +309,8 @@ construir a pilha de eventos críticos sem precisar rearquitetar o estado.
 Toda aleatoriedade da simulação — variações climáticas, tempestades, falhas de módulos
 e auto-reparos — passa pelo gerador congruencial linear (LCG) injetado em
 `state["rng"]`. O estado inicial do LCG é determinado exclusivamente pela seed passada
-a `init_simulation(seed)`. Não há chamadas a `random` do módulo padrão nem a
-`time.time()`. Duas chamadas a `export_run(seed=42)` produzem CSVs byte-a-byte
+a `init_simulation(seed)`. Não há chamadas ao módulo `random` da biblioteca padrão nem a
+`time.time()`. Duas chamadas a `export_run(seed=42)` produzem CSVs byte a byte
 idênticos — garantia de reprodutibilidade total da telemetria canônica.
 
 ---
@@ -316,7 +320,7 @@ idênticos — garantia de reprodutibilidade total da telemetria canônica.
 A saída do sistema não é um despejo de texto plano: é um relatório em painéis com
 moldura, cor e mini-gráficos, projetado para que o leitor — operador ou avaliador —
 perceba a cobertura dos requisitos sem precisar garimpá-la. A camada é isolada da
-lógica em três módulos, consumando o princípio de separar regra de apresentação das
+lógica em três módulos, concretizando o princípio de separar regra de apresentação das
 Seções 4.3 e 6.3:
 
 - **`monitor/render.py`** — primitivas puras de renderização (molduras, barras,
@@ -399,7 +403,7 @@ init_simulation(seed=42)
  | predict_next_reserve()     (OLS)           |
  | evaluate_alerts(snapshot)  (regras puras)  |
  |   -> AlertQueue CRITICO->ALERTA->NORMAL    |
- | evaluate_alerts() x 168 -> CriticalStack  |
+ | evaluate_alerts() x 168 -> CriticalStack   |
  +--------------------------------------------+
      |
  compose_report()  ->  render/ + rubric/  (apresentacao)

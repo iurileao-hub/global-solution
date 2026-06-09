@@ -8,9 +8,9 @@ cuja exigência central é que a solução reflita o entendimento da equipe.
 - **Brainstorming, especificação e implementação assistida** da camada de monitoramento e
   apresentação (`src/monitor/`), a partir das decisões de projeto da equipe e em ciclos de
   teste-primeiro (TDD).
-- **Revisão e redação** de código, do README e deste relatório técnico.
+- **Revisão e redação** de código, do README e do relatório técnico.
 - A **telemetria não foi gerada por IA**: vem do simulador determinístico próprio da equipe
-  (Fase 3), também origem do motor científico vendado em `src/engine/`.
+  (Fase 3), também origem do motor científico incorporado em `src/engine/`.
 
 ## Autoria e validação
 A equipe está integrada às decisões de arquitetura e implementação e é capaz de explicar e
