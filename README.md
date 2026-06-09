@@ -85,7 +85,7 @@ Saída (relatório no terminal; cores degradam para texto puro quando redirecion
 O sistema emite recomendações por alerta (manter Vital, ativar economia, priorizar nuclear+bateria em tempestade) e uma recomendação preventiva quando a previsão projeta reserva < 40%.
 
 ## 9. Link do vídeo
-<TBD — vídeo pendente de gravação> (YouTube "Não Listado").
+https://youtu.be/EH4tqvsp1Jo (YouTube "Não Listado").
 
 ## 10. Conclusões e aprendizados
 
